@@ -1,4 +1,6 @@
-#include <MifareUltralight.h>
+#include "MifareUltralight.h"
+
+#include "internal/Ndef.h"
 
 #define ULTRALIGHT_PAGE_SIZE 4
 #define ULTRALIGHT_READ_SIZE 4 // we should be able to read 16 bytes at a time
@@ -25,7 +27,8 @@ NfcTag MifareUltralight::read(byte * uid, unsigned int uidLength)
 {
     if (isUnformatted())
     {
-        Serial.println(F("WARNING: Tag is not formatted."));
+        DMSG_STR(F("WARNING: Tag is not formatted."));
+
         return NfcTag(uid, uidLength, NFC_FORUM_TAG_TYPE_2);
     }
 
@@ -49,14 +52,14 @@ NfcTag MifareUltralight::read(byte * uid, unsigned int uidLength)
         success = nfc->mifareultralight_ReadPage(page, &buffer[index]);
         if (success)
         {
-            #ifdef MIFARE_ULTRALIGHT_DEBUG
-            Serial.print(F("Page "));Serial.print(page);Serial.print(" ");
-            nfc->PrintHexChar(&buffer[index], ULTRALIGHT_PAGE_SIZE);
+            #ifdef DEBUG
+            DMSG(F("Page"));DMSG_HEX(page);DMSG(" ");
+            PrintHexChar(&buffer[index], ULTRALIGHT_PAGE_SIZE);
             #endif
         }
         else
         {
-            Serial.print(F("Read failed "));Serial.println(page);
+            DMSG_STR(F("Read failed"));
             // TODO error handling
             messageLength = 0;
             break;
@@ -86,7 +89,7 @@ boolean MifareUltralight::isUnformatted()
     }
     else
     {
-        Serial.print(F("Error. Failed read page "));Serial.println(page);
+        NDEF_DMSG_INT(F("Error. Failed read page"), page);
         return false;
     }
 }
@@ -100,10 +103,8 @@ void MifareUltralight::readCapabilityContainer()
     {
         // See AN1303 - different rules for Mifare Family byte2 = (additional data + 48)/8
         tagCapacity = data[2] * 8;
-        #ifdef MIFARE_ULTRALIGHT_DEBUG
-        Serial.print(F("Tag capacity "));Serial.print(tagCapacity);Serial.println(F(" bytes"));
-        #endif
 
+        DMSG(F("Tag capacity"));DMSG_INT(tagCapacity);DMSG(F(" bytes\n"));
         // TODO future versions should get lock information
     }
 }
@@ -120,10 +121,12 @@ void MifareUltralight::findNdefMessage()
     for (page = 4; page < 6; page++)
     {
         success = success && nfc->mifareultralight_ReadPage(page, data_ptr);
-        #ifdef MIFARE_ULTRALIGHT_DEBUG
-        Serial.print(F("Page "));Serial.print(page);Serial.print(F(" - "));
-        nfc->PrintHexChar(data_ptr, 4);
+
+        #ifdef DEBUG
+        DMSG(F("Page"));DMSG_INT(page);DMSG(F(" - "));
+        PrintHexChar(data_ptr, 4);
         #endif
+
         data_ptr += ULTRALIGHT_PAGE_SIZE;
     }
 
@@ -141,11 +144,8 @@ void MifareUltralight::findNdefMessage()
             ndefStartIndex = 7;
         }
     }
-
-    #ifdef MIFARE_ULTRALIGHT_DEBUG
-    Serial.print(F("messageLength "));Serial.println(messageLength);
-    Serial.print(F("ndefStartIndex "));Serial.println(ndefStartIndex);
-    #endif
+    NDEF_DMSG_INT(F("messageLength"), messageLength);
+    NDEF_DMSG_INT(F("ndefStartIndex"), ndefStartIndex);
 }
 
 // buffer is larger than the message, need to handle some data before and after

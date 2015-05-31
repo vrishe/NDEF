@@ -1,10 +1,11 @@
 #ifndef MifareClassic_h
 #define MifareClassic_h
 
-#include <Due.h>
+#include <Arduino.h>
 #include <PN532.h>
-#include <Ndef.h>
-#include <NfcTag.h>
+
+#include "NfcTag.h"
+#include "Due.h"
 
 class MifareClassic
 {

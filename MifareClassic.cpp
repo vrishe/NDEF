@@ -1,5 +1,7 @@
 #include "MifareClassic.h"
 
+#include "internal/Ndef.h"
+
 #define BLOCK_SIZE 16
 #define LONG_TLV_SIZE 4
 #define SHORT_TLV_SIZE 2
@@ -36,13 +38,13 @@ NfcTag MifareClassic::read(byte *uid, unsigned int uidLength)
         }
         else
         {
-            Serial.print(F("Error. Failed read block "));Serial.println(currentBlock);
+            NDEF_DMSG_INT(F("Error. Failed read block "), currentBlock);
             return NfcTag(uid, uidLength, MIFARE_CLASSIC);
         }
     }
     else
     {
-        Serial.println(F("Tag is not NDEF formatted."));
+        DMSG_STR(F("Tag is not NDEF formatted."));
         // TODO set tag.isFormatted = false
         return NfcTag(uid, uidLength, MIFARE_CLASSIC);
     }
@@ -52,10 +54,8 @@ NfcTag MifareClassic::read(byte *uid, unsigned int uidLength)
     int bufferSize = getBufferSize(messageLength);
     uint8_t buffer[bufferSize];
 
-    #ifdef MIFARE_CLASSIC_DEBUG
-    Serial.print(F("Message Length "));Serial.println(messageLength);
-    Serial.print(F("Buffer Size "));Serial.println(bufferSize);
-    #endif
+    NDEF_DMSG_INT(F("Message Length"), messageLength);
+    NDEF_DMSG_INT(F("Buffer Size"), bufferSize);
 
     while (index < bufferSize)
     {
@@ -66,7 +66,7 @@ NfcTag MifareClassic::read(byte *uid, unsigned int uidLength)
             success = _nfcShield->mifareclassic_AuthenticateBlock(uid, uidLength, currentBlock, 0, key);
             if (!success)
             {
-                Serial.print(F("Error. Block Authentication failed for "));Serial.println(currentBlock);
+                NDEF_DMSG_INT(F("Error. Block Authentication failed for"), currentBlock);
                 // TODO error handling
             }
         }
@@ -75,36 +75,32 @@ NfcTag MifareClassic::read(byte *uid, unsigned int uidLength)
         success = _nfcShield->mifareclassic_ReadDataBlock(currentBlock, &buffer[index]);
         if (success)
         {
-            #ifdef MIFARE_CLASSIC_DEBUG
-            Serial.print(F("Block "));Serial.print(currentBlock);Serial.print(" ");
-            _nfcShield->PrintHexChar(&buffer[index], BLOCK_SIZE);
+            #ifdef DEBUG
+            DMSG(F("Block")); DMSG_INT(currentBlock);DMSG(" ");
+            PrintHexChar(&buffer[index], BLOCK_SIZE);
             #endif
         }
         else
         {
-            Serial.print(F("Read failed "));Serial.println(currentBlock);
+            NDEF_DMSG_INT(F("Read failed"), currentBlock);
             // TODO handle errors here
         }
-
         index += BLOCK_SIZE;
         currentBlock++;
 
         // skip the trailer block
         if (_nfcShield->mifareclassic_IsTrailerBlock(currentBlock))
         {
-            #ifdef MIFARE_CLASSIC_DEBUG
-            Serial.print(F("Skipping block "));Serial.println(currentBlock);
-            #endif
+            NDEF_DMSG_INT(F("Skipping block"), currentBlock);
+
             currentBlock++;
         }
     }
-
     return NfcTag(uid, uidLength, MIFARE_CLASSIC, &buffer[messageStartIndex], messageLength);
 }
 
 int MifareClassic::getBufferSize(int messageLength)
 {
-
     int bufferSize = messageLength;
 
     // TLV header is 2 or 4 bytes, TLV terminator is 1 byte.
@@ -144,7 +140,7 @@ int MifareClassic::getNdefStartIndex(byte *data)
         }
         else
         {
-            Serial.print("Unknown TLV ");Serial.println(data[i], HEX);
+            NDEF_DMSG_HEX("Unknown TLV", data[i]);
             return -2;
         }
     }
@@ -166,7 +162,7 @@ bool MifareClassic::decodeTlv(byte *data, int &messageLength, int &messageStartI
 
     if (i < 0 || data[i] != 0x3)
     {
-        Serial.println(F("Error. Can't decode message length."));
+        DMSG_STR(F("Error. Can't decode message length."));
         return false;
     }
     else
@@ -334,10 +330,8 @@ boolean MifareClassic::write(NdefMessage& m, byte * uid, unsigned int uidLength)
     uint8_t buffer[getBufferSize(sizeof(encoded))];
     memset(buffer, 0, sizeof(buffer));
 
-    #ifdef MIFARE_CLASSIC_DEBUG
-    Serial.print(F("sizeof(encoded) "));Serial.println(sizeof(encoded));
-    Serial.print(F("sizeof(buffer) "));Serial.println(sizeof(buffer));
-    #endif
+    NDEF_DMSG_INT(F("sizeof(encoded)"), sizeof(encoded));
+    NDEF_DMSG_INT(F("sizeof(buffer)"),  sizeof(buffer));
 
     if (sizeof(encoded) < 0xFF)
     {
@@ -369,7 +363,7 @@ boolean MifareClassic::write(NdefMessage& m, byte * uid, unsigned int uidLength)
             int success = _nfcShield->mifareclassic_AuthenticateBlock(uid, uidLength, currentBlock, 0, key);
             if (!success)
             {
-                Serial.print(F("Error. Block Authentication failed for "));Serial.println(currentBlock);
+                NDEF_DMSG_INT(F("Error. Block Authentication failed for"), currentBlock);
                 return false;
             }
         }
@@ -377,14 +371,14 @@ boolean MifareClassic::write(NdefMessage& m, byte * uid, unsigned int uidLength)
         int write_success = _nfcShield->mifareclassic_WriteDataBlock (currentBlock, &buffer[index]);
         if (write_success)
         {
-            #ifdef MIFARE_CLASSIC_DEBUG
-            Serial.print(F("Wrote block "));Serial.print(currentBlock);Serial.print(" - ");
-            _nfcShield->PrintHexChar(&buffer[index], BLOCK_SIZE);
+            #ifdef DEBUG
+            DMSG(F("Wrote block"));DMSG_INT(currentBlock);DMSG(" - ");
+            PrintHexChar(&buffer[index], BLOCK_SIZE);
             #endif
         }
         else
         {
-            Serial.print(F("Write failed "));Serial.println(currentBlock);
+            NDEF_DMSG_INT(F("Write failed"), currentBlock);
             return false;
         }
         index += BLOCK_SIZE;
@@ -393,9 +387,8 @@ boolean MifareClassic::write(NdefMessage& m, byte * uid, unsigned int uidLength)
         if (_nfcShield->mifareclassic_IsTrailerBlock(currentBlock))
         {
             // can't write to trailer block
-            #ifdef MIFARE_CLASSIC_DEBUG
-            Serial.print(F("Skipping block "));Serial.println(currentBlock);
-            #endif
+            NDEF_DMSG_INT(F("Skipping block"), currentBlock);
+
             currentBlock++;
         }
 

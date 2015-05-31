@@ -1,4 +1,6 @@
-#include <NfcTag.h>
+#include "NfcTag.h"
+
+#include "internal/Ndef.h"
 
 NfcTag::NfcTag()
 {
@@ -108,14 +110,16 @@ NdefMessage NfcTag::getNdefMessage()
 
 void NfcTag::print()
 {
-    Serial.print(F("NFC Tag - "));Serial.println(_tagType);
-    Serial.print(F("UID "));Serial.println(getUidString());
+#ifdef DEBUG
+    NDEF_DMSG_INT(F("NFC Tag - "), _tagType);
+    NDEF_DMSG_INT(F("UID "), getUidString());
     if (_ndefMessage == NULL)
     {
-        Serial.println(F("\nNo NDEF Message"));
+        DMSG_STR(F("\nNo NDEF Message"));
     }
     else
     {
         _ndefMessage->print();
     }
+#endif // DEBUG
 }

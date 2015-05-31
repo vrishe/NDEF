@@ -1,9 +1,9 @@
 #ifndef NdefRecord_h
 #define NdefRecord_h
 
-#include <Due.h>
 #include <Arduino.h>
-#include <Ndef.h>
+
+#include "Due.h"
 
 #define TNF_EMPTY 0x0
 #define TNF_WELL_KNOWN 0x01

@@ -1,4 +1,6 @@
-#include <NfcAdapter.h>
+#include "NfcAdapter.h"
+
+#include "internal/Ndef.h"
 
 NfcAdapter::NfcAdapter(PN532Interface &interface)
 {
@@ -16,11 +18,13 @@ void NfcAdapter::begin(boolean verbose)
 
     uint32_t versiondata = shield->getFirmwareVersion();
 
-    if (! versiondata)
-    {
-        Serial.print(F("Didn't find PN53x board"));
+    if (! versiondata) {
+        DMSG(F("Didn't find PN53x board"));
         while (1); // halt
     }
+    NDEF_DMSG_HEX(F("Found chip PN5"), (versiondata>>24) & 0xFF);
+    NDEF_DMSG_INT(F("Firmware ver. "), (versiondata>>16) & 0xFF);
+    NDEF_DMSG_INT(".", (versiondata>>8) & 0xFF);
 
     if (verbose)
     {
@@ -44,6 +48,13 @@ boolean NfcAdapter::tagPresent(unsigned long timeout)
     else
     {
         success = shield->readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, (uint8_t*)&uidLength, timeout);
+    }
+    if (success)
+    {
+       DMSG_STR("Found an ISO14443A card");
+       DMSG("  UID Length:");DMSG_INT(uidLength);DMSG(" bytes\n");
+       DMSG("  UID Value: ");PrintHex(uid, uidLength);
+       DMSG('\n');
     }
     return success;
 }
@@ -107,28 +118,29 @@ NfcTag NfcAdapter::read()
 
     if (type == TAG_TYPE_MIFARE_CLASSIC)
     {
-        #ifdef NDEF_DEBUG
-        Serial.println(F("Reading Mifare Classic"));
-        #endif
+        DMSG_STR(F("Reading Mifare Classic"));
+
         MifareClassic mifareClassic = MifareClassic(*shield);
         return mifareClassic.read(uid, uidLength);
     }
     else if (type == TAG_TYPE_2)
     {
-        #ifdef NDEF_DEBUG
-        Serial.println(F("Reading Mifare Ultralight"));
-        #endif
+        DMSG_STR(F("Reading Mifare Ultralight"));
+
         MifareUltralight ultralight = MifareUltralight(*shield);
         return ultralight.read(uid, uidLength);
     }
     else if (type == TAG_TYPE_UNKNOWN)
     {
-        Serial.print(F("Can not determine tag type"));
+        DMSG(F("Can not determine tag type"));
+//        DMSG(F("Can not determine tag type for ATQA 0x"));
+//        DMSG_HEX(atqa);DMSG(" SAK 0x");DMSG_HEX(sak);
+
         return NfcTag(uid, uidLength);
     }
     else
     {
-        Serial.print(F("No driver for card type "));Serial.println(type);
+        NDEF_DMSG_INT(F("No driver for card type "), type);
         // TODO should set type here
         return NfcTag(uid, uidLength);
     }
@@ -163,7 +175,8 @@ boolean NfcAdapter::write(NdefMessage& ndefMessage)
     }
     else
     {
-        Serial.print(F("No driver for card type "));Serial.println(type);
+        DMSG_STR(F("Unsupported Tag"));
+
         success = false;
     }
 
